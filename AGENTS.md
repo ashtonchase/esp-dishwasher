@@ -1,44 +1,37 @@
 # ESPHome Dishwasher Controller - Agent Guidelines
 
-This is an ESPHome project for controlling a dishwasher via ESP32 with PCF8574 I/O expansion. The project uses YAML configuration with embedded Lambda C++ code for automation logic.
+This ESPHome project controls a dishwasher via ESP32 with PCF8574 I/O expansion using YAML configuration with embedded Lambda C++ automation.
 
-## Build and Development Commands
+## Build/Test Commands
 
-### ESPHome Commands
+### Primary Commands
 ```bash
-# Validate configuration (syntax check)
+# Validate configuration syntax (run first)
 esphome config dishwasher.yaml
 
 # Build firmware
 esphome compile dishwasher.yaml
 
-# Upload to device (USB)
+# Upload via USB
 esphome upload dishwasher.yaml
 
-# Upload over WiFi (device must be online)
+# Upload over WiFi (device IP: 192.168.2.197)
 esphome upload dishwasher.yaml --device 192.168.2.197
 
 # Clean build cache
 esphome clean dishwasher.yaml
 
-# Run with verbose logging
-esphome --verbose compile dishwasher.yaml
-
-# Show device logs
+# Monitor device logs
 esphome logs dishwasher.yaml
-```
 
-### Testing and Validation
-```bash
-# Configuration validation (primary test)
-esphome config dishwasher.yaml
-
-# Dry run compilation (build test)
-esphome compile --no-logs dishwasher.yaml
-
-# Test specific components by checking logs
+# Debug logging
 esphome logs dishwasher.yaml --level DEBUG
 ```
+
+### Testing Strategy
+- Always run `esphome config` before compilation
+- Use `esphome compile --no-logs` for build-only testing
+- Monitor logs with `--level DEBUG` for component testing
 
 ## Code Style Guidelines
 
@@ -126,18 +119,6 @@ i2c:
 - Break complex routines into reusable sub-scripts
 - Include state updates via text_sensor for Home Assistant visibility
 
-### WiFi and Network Configuration
-- Use secrets.yaml for sensitive credentials
-- Include fallback hotspot configuration
-- Set static IP for reliable Home Assistant integration
-- Add on_connect/on_disconnect handlers for status indication
-
-### Documentation and Comments
-- Comment hardware-specific configurations and pin mappings
-- Document timing requirements for mechanical systems
-- Include reference URLs for complex components
-- Explain the purpose of custom scripts and automation logic
-
 ## Testing Strategy
 
 ### Configuration Testing
@@ -164,7 +145,7 @@ i2c:
 - platform: gpio
   id: "run_dw_sw"
   name: "Run Dishwasher"
-  on_turn_on: 
+  on_turn_on:
     - script.execute: dishwasher_routine
   on_turn_off:
     - script.stop: dishwasher_routine

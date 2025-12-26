@@ -1,7 +1,7 @@
 #!/bin/bash
 
 # ESPHome Dishwasher Controller - Deployment Script
-# 
+#
 # This script helps users build and deploy the dishwasher controller
 
 set -e  # Exit on any error
@@ -126,7 +126,7 @@ main() {
     show_info
     check_esphome
     check_secrets
-    
+
     while true; do
         show_menu
         case $choice in
@@ -159,7 +159,7 @@ main() {
                 print_error "Invalid option! Please choose 1-6."
                 ;;
         esac
-        
+
         echo ""
         read -p "Press Enter to continue..."
     done

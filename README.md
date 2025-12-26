@@ -88,7 +88,7 @@ GND → GND
    ```bash
    # Validate configuration
    esphome config dishwasher.yaml
-   
+
    # Build and upload
    esphome upload dishwasher.yaml
    ```

@@ -4,19 +4,48 @@
 
 This dishwasher controller uses an ESP32 with a PCF8574 I/O expander to control 6 relays that manage the dishwasher functions.
 
-## Wiring Diagram
+## Hardware Wiring Diagram
 
+```mermaid
+%%{init: {'theme': 'base'}}%%
+graph TB
+    subgraph ESP32 [ESP32 Controller]
+        GPIO2[I2C SDA] --> I2C
+        GPIO15[I2C SCL] --> I2C
+        GPIO23[Status LED] --> LED
+        GPIO0[Button] --> BTN
+        I2C[I2C Bus] --> PCF8574
+    end
+
+    subgraph PCF8574 [I/O Expander @ 0x27]
+        P1[Pin 1] --> RELAY1[Run Relay]
+        P3[Pin 3] --> RELAY3[Heat Relay]
+        P4[Pin 4] --> RELAY4[Circulate Relay]
+        P5[Pin 5] --> RELAY5[Drain Relay]
+        P6[Pin 6] --> RELAY6[Fill Relay]
+        P7[Pin 7] --> RELAY7[Dispense Relay]
+    end
+
+    subgraph DISHWASHER [Dishwasher Components]
+        RELAY1 --> MOTOR[Main Motor]
+        RELAY3 --> HEATER[Heating Element]
+        RELAY4 --> PUMP[Circulation Pump]
+        RELAY5 --> DRAIN[Drain Pump]
+        RELAY6 --> VALVE[Fill Valve]
+        RELAY7 --> DISP[Detergent Dispenser]
+    end
+
+    subgraph CONTROL [Control Flow]
+        HA[Home Assistant] -.->|WiFi| ESP32
+        BTN -.->|Manual Start| ESP32
+        ESP32 -->|Status Updates| HA
+    end
+
+    style HA fill:#e1f5fe
+    style ESP32 fill:#1f77b4
+    style PCF8574 fill:#ff7f0e
+    style DISHWASHER fill:#2ca02c
 ```
-ESP32 Board                           PCF8574
-+------------------+                   +-----------+
-|              SDA|-------------------| SDA       |
-|              SCL|-------------------| SCL       |
-|              3V3|-------------------| VCC       |
-|              GND|-------------------| GND       |
-|                 |                   |           |
-+------------------+                   +-----------+
-                                               |
-                                               |   +-----------+
                                                |   | P0        |
                                                |   +-----------+
                                                |   | P1        |---→ Run Dishwasher Relay

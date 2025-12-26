@@ -1,8 +1,8 @@
 # ESPHome Dishwasher Controller
-# 
+#
 # This configuration controls a dishwasher via ESP32 with PCF8574 I/O expansion.
 # It provides a complete washing cycle with pre-wash, main wash, rinse, and drying phases.
-# 
+#
 # Hardware Requirements:
 # - ESP32 development board
 # - PCF8574 I/O expander (I2C address 0x27)
@@ -16,7 +16,8 @@
 
 esphome:
   name: dishwasher
-  platform: ESP32
+
+esp32:
   board: esp32dev
 
 # Enable logging for debugging
@@ -27,7 +28,7 @@ logger:
 
 # Enable Home Assistant API
 api:
-  password: !secret api_password
+  password: !secret dishwasher_key
   actions:
     - action: start_dishwasher
       then:
@@ -36,7 +37,7 @@ api:
 # Enable Over-The-Air updates
 ota:
   - platform: esphome
-    password: !secret ota_password
+    password: !secret wifi_password
 
 # WiFi configuration with fallback hotspot
 wifi:
@@ -122,14 +123,13 @@ switch:
     name: "Run Dishwasher"
     icon: "mdi:dishwasher"
     restore_mode: ALWAYS_OFF
-    on_turn_on: 
+    on_turn_on:
       then:
         - script.execute: dishwasher_routine
     on_turn_off:
-      then:
-        - script.stop: dishwasher_routine
-        - script.execute: abort_dishwasher_routine
-        - script.wait: abort_dishwasher_routine 
+      - script.stop: dishwasher_routine
+      - script.execute: abort_dishwasher_routine
+      - script.wait: abort_dishwasher_routine
 
   # Heating element control
   - platform: gpio
@@ -169,7 +169,7 @@ switch:
       mode:
         output: true
       inverted: true
-  
+
   # Water fill valve control
   - platform: gpio
     name: "Fill"
@@ -243,10 +243,10 @@ binary_sensor:
 script:
   # Drain and fill routine - exchanges water in the system
   - id: drain_and_fill_routine
-    then: 
+    then:
       - switch.turn_off: heat_sw
       - delay: 1s
-      - switch.turn_on: drain_sw 
+      - switch.turn_on: drain_sw
       - delay: 20s
       - switch.turn_on: fill_sw
       - delay: 60s
@@ -304,29 +304,29 @@ script:
   - id: dishwasher_routine
     then:
       # ===== PRE-WASH PHASE =====
-      - logger.log: "Pre Wash 1/3" 
+      - logger.log: "Pre Wash 1/3"
       - lambda: |-
           id(dw_state).publish_state("Pre Wash");
       - script.execute: drain_and_fill_routine
       - script.wait: drain_and_fill_routine
       - script.execute: circ_alternate_240s
       - script.wait: circ_alternate_240s
-      
+
       # Pre Wash 2 (currently disabled for shorter cycle)
       # - logger.log: "Pre Wash 2/3"
       # - script.execute: drain_and_fill_routine
       # - script.wait: drain_and_fill_routine
       # - script.execute: circ_alternate_240s
       # - script.wait: circ_alternate_240s
-      
+
       # Pre Wash 3 with heat
-      - logger.log: "Pre Wash 3/3"  
+      - logger.log: "Pre Wash 3/3"
       - script.execute: drain_and_fill_routine
       - script.wait: drain_and_fill_routine
       - switch.turn_on: heat_sw
       - script.execute: circ_alternate_240s
       - script.wait: circ_alternate_240s
-      
+
       # ===== MAIN WASH PHASE =====
       - logger.log: "Main Wash"
       - lambda: |-
@@ -339,7 +339,7 @@ script:
       - delay: 500ms
       - switch.turn_on: heat_sw
       - delay: 45s
-      - switch.turn_off: disp_sw 
+      - switch.turn_off: disp_sw
       # Extended circulation for thorough cleaning (6 cycles of 10 minutes each)
       - script.execute: circ_alternate_600s
       - script.wait: circ_alternate_600s
@@ -373,10 +373,10 @@ script:
       - switch.turn_on: heat_sw
       - script.execute: circ_alternate_240s
       - script.wait: circ_alternate_240s
-      
+
       # ===== FINAL RINSE PHASE =====
       - lambda: |-
-          id(dw_state).publish_state("Final Rinse");    
+          id(dw_state).publish_state("Final Rinse");
       - logger.log: "Final Rinse"
       - script.execute: drain_and_fill_routine
       - script.wait: drain_and_fill_routine
@@ -386,7 +386,7 @@ script:
       - delay: 500ms
       - switch.turn_on: heat_sw
       - delay: 45s
-      - switch.turn_off: disp_sw 
+      - switch.turn_off: disp_sw
       - script.execute: circ_alternate_600s
       - script.wait: circ_alternate_600s
 
@@ -396,7 +396,7 @@ script:
             switch.is_on: heated_wash_id
           then:
             - lambda: |-
-                id(dw_state).publish_state("Drying");    
+                id(dw_state).publish_state("Drying");
             - logger.log: "Heat Dry"
             - switch.turn_on: drain_sw
             - delay: 45s
@@ -409,12 +409,12 @@ script:
             - delay: 600s
             - switch.turn_off: heat_sw
             - delay: 60s
-      
+
       # ===== FINAL DRAIN AND COMPLETION =====
       - switch.turn_on: drain_sw
       - delay: 20s
       - switch.turn_off: drain_sw
       - lambda: |-
-          id(dw_state).publish_state("Standby");     
+          id(dw_state).publish_state("Standby");
       - logger.log: "Wash Complete"
       - switch.turn_off: run_dw_sw
