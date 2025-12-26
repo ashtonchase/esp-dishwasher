@@ -10,12 +10,13 @@
 # - Status LED
 # - Push button for manual control
 #
-# Author: [Your Name]
+# Author: Ashton Chase
 # License: MIT
-# Repository: https://github.com/[your-username]/esphome-dishwasher-controller
+# Repository: https://github.com/ashtonchase/esp-dishwasher
 
 esphome:
   name: dishwasher
+  version: 0.1.0
 
 esp32:
   board: esp32dev

@@ -1,5 +1,6 @@
 # ESPHome Dishwasher Controller
 
+[![Version: 0.1.0](https://img.shields.io/badge/Version-0.1.0-blue.svg)](https://github.com/ashtonchase/esp-dishwasher/releases/tag/v0.1.0)
 [![ESPHome](https://img.shields.io/badge/ESPHome-compatible-blue.svg)](https://esphome.io/)
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
 [![Platform: ESP32](https://img.shields.io/badge/Platform-ESP32-green.svg)](https://www.espressif.com/en/products/socs/esp32)
@@ -67,8 +68,8 @@ GND → GND
 
 1. **Clone this repository**
    ```bash
-   git clone https://github.com/[your-username]/esphome-dishwasher-controller.git
-   cd esphome-dishwasher-controller
+   git clone https://github.com/ashtonchase/esp-dishwasher.git
+   cd esp-dishwasher
    ```
 
 2. **Configure secrets**
@@ -245,7 +246,7 @@ This project is licensed under the MIT License - see the [LICENSE](LICENSE) file
 If you encounter any issues or have questions:
 
 1. Check the [Troubleshooting](#-troubleshooting) section
-2. Search existing [GitHub Issues](https://github.com/[your-username]/esphome-dishwasher-controller/issues)
+2. Search existing [GitHub Issues](https://github.com/ashtonchase/esp-dishwasher/issues)
 3. Create a new issue with detailed information
 4. Join the [ESPHome Discord](https://discord.gg/KhAMKrd) for community support
 
