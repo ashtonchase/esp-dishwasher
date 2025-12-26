@@ -1,0 +1,420 @@
+# ESPHome Dishwasher Controller
+# 
+# This configuration controls a dishwasher via ESP32 with PCF8574 I/O expansion.
+# It provides a complete washing cycle with pre-wash, main wash, rinse, and drying phases.
+# 
+# Hardware Requirements:
+# - ESP32 development board
+# - PCF8574 I/O expander (I2C address 0x27)
+# - 6x relays for pump/heater control
+# - Status LED
+# - Push button for manual control
+#
+# Author: [Your Name]
+# License: MIT
+# Repository: https://github.com/[your-username]/esphome-dishwasher-controller
+
+esphome:
+  name: dishwasher
+  platform: ESP32
+  board: esp32dev
+
+# Enable logging for debugging
+logger:
+  level: INFO
+  logs:
+    script: INFO
+
+# Enable Home Assistant API
+api:
+  password: !secret api_password
+  actions:
+    - action: start_dishwasher
+      then:
+        - script.execute: dishwasher_routine
+
+# Enable Over-The-Air updates
+ota:
+  - platform: esphome
+    password: !secret ota_password
+
+# WiFi configuration with fallback hotspot
+wifi:
+  ssid: !secret wifi_ssid
+  password: !secret wifi_password
+  manual_ip:
+    static_ip: 192.168.2.197
+    gateway: 192.168.2.1
+    subnet: 255.255.255.0
+
+  # Enable fallback hotspot (captive portal) in case wifi connection fails
+  ap:
+    ssid: "Dishwasher Fallback Hotspot"
+    password: !secret wifi_password
+
+  # WiFi connection handlers
+  on_connect:
+    - light.turn_on:
+        id: board_status_led
+        brightness: 50%
+        effect: pulse
+    - switch.turn_on: drain_sw
+    - delay: 3s
+    - switch.turn_off: drain_sw
+    - lambda: |-
+        id(dw_state).publish_state("Standby");
+
+  on_disconnect:
+    - light.turn_on:
+        id: board_status_led
+        brightness: 80%
+        effect: strobe
+
+captive_portal:
+
+# I2C bus for PCF8574 I/O expander
+i2c:
+  id: dishwasher_i2c
+  sda: GPIO2
+  scl: GPIO15
+  frequency: 10khz
+
+# Status text sensor for Home Assistant integration
+text_sensor:
+  - platform: template
+    name: "Dishwasher Status"
+    id: dw_state
+    icon: "mdi:dishwasher"
+
+# System sensors
+sensor:
+  - platform: uptime
+    type: seconds
+    name: "Dishwasher Uptime"
+    icon: "mdi:clock-outline"
+
+# PCF8574 I/O expander configuration
+pcf8574:
+  - id: 'pcf8574_hub'
+    address: 0x27
+    pcf8575: false
+
+# Control switches for dishwasher functions
+switch:
+  # Heated wash option (template switch for user control)
+  - platform: template
+    id: heated_wash_id
+    name: "Heated Wash"
+    restore_mode: RESTORE_DEFAULT_ON
+    optimistic: true
+    icon: "mdi:heat-wave"
+    entity_category: config
+
+  # Main dishwasher control switch
+  - platform: gpio
+    pin:
+      pcf8574: pcf8574_hub
+      number: 1  # PCF8574 pin P1
+      mode:
+        output: true
+      inverted: true
+    id: "run_dw_sw"
+    name: "Run Dishwasher"
+    icon: "mdi:dishwasher"
+    restore_mode: ALWAYS_OFF
+    on_turn_on: 
+      then:
+        - script.execute: dishwasher_routine
+    on_turn_off:
+      then:
+        - script.stop: dishwasher_routine
+        - script.execute: abort_dishwasher_routine
+        - script.wait: abort_dishwasher_routine 
+
+  # Heating element control
+  - platform: gpio
+    name: "Heat"
+    id: "heat_sw"
+    icon: "mdi:radiator"
+    restore_mode: ALWAYS_OFF
+    pin:
+      pcf8574: pcf8574_hub
+      number: 3  # PCF8574 pin P3
+      mode:
+        output: true
+      inverted: true
+
+  # Water circulation pump control
+  - platform: gpio
+    name: "Circulate"
+    id: "circ_sw"
+    icon: "mdi:wiper-wash"
+    restore_mode: ALWAYS_OFF
+    pin:
+      pcf8574: pcf8574_hub
+      number: 4  # PCF8574 pin P4
+      mode:
+        output: true
+      inverted: true
+
+  # Drain pump control
+  - platform: gpio
+    name: "Drain"
+    id: "drain_sw"
+    icon: "mdi:basket-unfill"
+    restore_mode: ALWAYS_OFF
+    pin:
+      pcf8574: pcf8574_hub
+      number: 5  # PCF8574 pin P5
+      mode:
+        output: true
+      inverted: true
+  
+  # Water fill valve control
+  - platform: gpio
+    name: "Fill"
+    id: "fill_sw"
+    icon: "mdi:basket-fill"
+    restore_mode: ALWAYS_OFF
+    pin:
+      pcf8574: pcf8574_hub
+      number: 6  # PCF8574 pin P6
+      mode:
+        output: true
+      inverted: true
+
+  # Detergent dispenser control
+  - platform: gpio
+    name: "Dispense"
+    id: "disp_sw"
+    icon: "mdi:jellyfish"
+    restore_mode: ALWAYS_OFF
+    pin:
+      pcf8574: pcf8574_hub
+      number: 7  # PCF8574 pin P7
+      mode:
+        output: true
+      inverted: true
+
+# Board status LED output
+output:
+  - platform: ledc
+    pin: GPIO23
+    inverted: false
+    id: gpio_23
+
+# Board status LED with effects
+light:
+  - platform: monochromatic
+    id: board_status_led
+    name: "Board Status LED"
+    internal: true
+    output: gpio_23
+    default_transition_length: 20ms
+    effects:
+      - strobe:
+          colors:
+            - state: true
+              brightness: 50%
+              duration: 200ms
+            - state: false
+              brightness: 1%
+              duration: 200ms
+      - pulse:
+          max_brightness: 30%
+          min_brightness: 15%
+
+# Board button for manual control
+binary_sensor:
+  - platform: gpio
+    pin:
+      number: GPIO0
+      mode: INPUT_PULLUP
+      inverted: true
+    internal: true
+    name: "Board Button"
+    entity_category: diagnostic
+    filters:
+      - delayed_on: 10ms
+    on_press:
+      - script.execute: dishwasher_routine
+
+# Dishwasher automation scripts
+script:
+  # Drain and fill routine - exchanges water in the system
+  - id: drain_and_fill_routine
+    then: 
+      - switch.turn_off: heat_sw
+      - delay: 1s
+      - switch.turn_on: drain_sw 
+      - delay: 20s
+      - switch.turn_on: fill_sw
+      - delay: 60s
+      - switch.turn_off: drain_sw
+      - delay: 90s
+      - switch.turn_off: fill_sw
+      - delay: 1s
+
+  # Circulation pattern for shorter cycles (4 minutes + 4 minutes)
+  - id: circ_alternate_240s
+    then:
+      - switch.turn_on: circ_sw
+      - delay: 240s  # 4 minutes
+      - switch.turn_off: circ_sw
+      - delay: 750ms
+      - switch.turn_on: circ_sw
+      - delay: 240s  # 4 minutes
+      - switch.turn_off: circ_sw
+      - delay: 4s
+
+  # Circulation pattern for longer cycles (5 minutes + 5 minutes)
+  - id: circ_alternate_600s
+    then:
+      - switch.turn_on: circ_sw
+      - delay: 300s  # 5 minutes
+      - switch.turn_off: circ_sw
+      - delay: 750ms
+      - switch.turn_on: circ_sw
+      - delay: 300s  # 5 minutes
+      - switch.turn_off: circ_sw
+      - delay: 4s
+
+  # Emergency abort routine - safely stops all operations
+  - id: abort_dishwasher_routine
+    then:
+      - logger.log: "Stopping Dishwasher..."
+      - lambda: |-
+          id(dw_state).publish_state("Cancelling");
+      - switch.turn_off: heat_sw
+      - delay: 1s
+      - switch.turn_off: circ_sw
+      - delay: 1s
+      - switch.turn_off: fill_sw
+      - delay: 1s
+      - switch.turn_off: disp_sw
+      - delay: 1s
+      - switch.turn_on: drain_sw
+      - delay: 60s
+      - switch.turn_off: drain_sw
+      - logger.log: "Stopped"
+      - lambda: |-
+          id(dw_state).publish_state("Standby");
+
+  # Main dishwasher washing routine
+  - id: dishwasher_routine
+    then:
+      # ===== PRE-WASH PHASE =====
+      - logger.log: "Pre Wash 1/3" 
+      - lambda: |-
+          id(dw_state).publish_state("Pre Wash");
+      - script.execute: drain_and_fill_routine
+      - script.wait: drain_and_fill_routine
+      - script.execute: circ_alternate_240s
+      - script.wait: circ_alternate_240s
+      
+      # Pre Wash 2 (currently disabled for shorter cycle)
+      # - logger.log: "Pre Wash 2/3"
+      # - script.execute: drain_and_fill_routine
+      # - script.wait: drain_and_fill_routine
+      # - script.execute: circ_alternate_240s
+      # - script.wait: circ_alternate_240s
+      
+      # Pre Wash 3 with heat
+      - logger.log: "Pre Wash 3/3"  
+      - script.execute: drain_and_fill_routine
+      - script.wait: drain_and_fill_routine
+      - switch.turn_on: heat_sw
+      - script.execute: circ_alternate_240s
+      - script.wait: circ_alternate_240s
+      
+      # ===== MAIN WASH PHASE =====
+      - logger.log: "Main Wash"
+      - lambda: |-
+          id(dw_state).publish_state("Main Wash");
+      - script.execute: drain_and_fill_routine
+      - script.wait: drain_and_fill_routine
+      - switch.turn_on: disp_sw
+      - delay: 500ms
+      - switch.turn_on: circ_sw
+      - delay: 500ms
+      - switch.turn_on: heat_sw
+      - delay: 45s
+      - switch.turn_off: disp_sw 
+      # Extended circulation for thorough cleaning (6 cycles of 10 minutes each)
+      - script.execute: circ_alternate_600s
+      - script.wait: circ_alternate_600s
+      - script.execute: circ_alternate_600s
+      - script.wait: circ_alternate_600s
+      - script.execute: circ_alternate_600s
+      - script.wait: circ_alternate_600s
+      - script.execute: circ_alternate_600s
+      - script.wait: circ_alternate_600s
+
+      # ===== RINSE PHASE =====
+      - lambda: |-
+          id(dw_state).publish_state("Pre Rinse");
+      - logger.log: "Pre Rinse 1/3"
+      - script.execute: drain_and_fill_routine
+      - script.wait: drain_and_fill_routine
+      - script.execute: circ_alternate_240s
+      - script.wait: circ_alternate_240s
+
+      # Pre Rinse 2 (currently disabled)
+      # - logger.log: "Pre Rinse 2/3"
+      # - script.execute: drain_and_fill_routine
+      # - script.wait: drain_and_fill_routine
+      # - script.execute: circ_alternate_240s
+      # - script.wait: circ_alternate_240s
+
+      # Pre Rinse 3 with heat
+      - logger.log: "Pre Rinse 3/3"
+      - script.execute: drain_and_fill_routine
+      - script.wait: drain_and_fill_routine
+      - switch.turn_on: heat_sw
+      - script.execute: circ_alternate_240s
+      - script.wait: circ_alternate_240s
+      
+      # ===== FINAL RINSE PHASE =====
+      - lambda: |-
+          id(dw_state).publish_state("Final Rinse");    
+      - logger.log: "Final Rinse"
+      - script.execute: drain_and_fill_routine
+      - script.wait: drain_and_fill_routine
+      - switch.turn_on: disp_sw
+      - delay: 500ms
+      - switch.turn_on: circ_sw
+      - delay: 500ms
+      - switch.turn_on: heat_sw
+      - delay: 45s
+      - switch.turn_off: disp_sw 
+      - script.execute: circ_alternate_600s
+      - script.wait: circ_alternate_600s
+
+      # ===== DRYING PHASE (Optional) =====
+      - if:
+          condition:
+            switch.is_on: heated_wash_id
+          then:
+            - lambda: |-
+                id(dw_state).publish_state("Drying");    
+            - logger.log: "Heat Dry"
+            - switch.turn_on: drain_sw
+            - delay: 45s
+            - switch.turn_off: drain_sw
+            - switch.turn_on: heat_sw
+            - delay: 600s
+            - switch.turn_off: heat_sw
+            - delay: 60s
+            - switch.turn_on: heat_sw
+            - delay: 600s
+            - switch.turn_off: heat_sw
+            - delay: 60s
+      
+      # ===== FINAL DRAIN AND COMPLETION =====
+      - switch.turn_on: drain_sw
+      - delay: 20s
+      - switch.turn_off: drain_sw
+      - lambda: |-
+          id(dw_state).publish_state("Standby");     
+      - logger.log: "Wash Complete"
+      - switch.turn_off: run_dw_sw

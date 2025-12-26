@@ -1,0 +1,29 @@
+# ESPHome build files
+.esphome/
+.pioenvs/
+.vscode/
+*.pio
+*.bin
+*.elf
+*.map
+
+# Secrets file (contains sensitive credentials)
+secrets.yaml
+
+# IDE files
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
+
+# OS files
+.DS_Store
+Thumbs.db
+
+# Logs
+*.log
+
+# Temporary files
+*.tmp
+*.temp
