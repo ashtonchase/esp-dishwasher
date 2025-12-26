@@ -27,3 +27,6 @@ Thumbs.db
 # Temporary files
 *.tmp
 *.temp
+
+# Local agent documentation (keep local only)
+AGENTS.md
